@@ -24,19 +24,21 @@ CONFIG = {
     
     # Application Settings
     'APPLICATION': {
-        'hostel_name': 'Aguere',
+        'hostel_name': 'Medano',
         'consent_default': '1',  # Default consent value (1=true, 0=false)
-        'excel_filename': 'guests.xlsx',
+        'excel_filename': 'files/Medano.xlsx',
         'date_format': '%d/%m/%Y'  # Input date format from Excel
     },
     
     # Email Filtering Settings
     'EMAIL_FILTERING': {
         'fake_domains': [
-            '@guest.booking.com',
-            '@expediapartnercentral.com', 
-            '@noemail.com',
-            '@airbnb.com'
+            'guest.booking.com',
+            'expediapartnercentral.com', 
+            'noemail.com',
+            'airbnb.com',
+            'trip.com',
+            'edreamsodigeo.com'
         ]
     },
     
