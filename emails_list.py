@@ -18,13 +18,28 @@ def is_valid_email(email):
 
 def is_not_booking_email(email):
     """
-    Check if email is NOT from booking.com
-    Returns True if email is NOT from booking.com, False if it is
+    Check if email is NOT from booking platforms or fake email services
+    Returns True if email is real, False if it's from booking/fake services
     """
     if not email or not isinstance(email, str):
         return False
     
-    return not email.lower().strip().endswith('@guest.booking.com')
+    email_lower = email.lower().strip()
+    
+    # List of fake/booking email domains to exclude
+    fake_domains = [
+        '@guest.booking.com',
+        '@expediapartnercentral.com', 
+        '@noemail.com',
+        '@airbnb.com'
+    ]
+    
+    # Check if email ends with any of the fake domains
+    for domain in fake_domains:
+        if email_lower.endswith(domain):
+            return False
+    
+    return True
 
 def parse_date(date_string):
     """
