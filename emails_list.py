@@ -3,6 +3,39 @@ import re
 import openpyxl
 from openpyxl import load_workbook
 from datetime import datetime, timedelta
+import logging
+import os
+
+def setup_logging():
+    """
+    Setup logging to both console and file with timestamp
+    """
+    # Create logs directory if it doesn't exist
+    if not os.path.exists('logs'):
+        os.makedirs('logs')
+    
+    # Create log filename with timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_filename = f"logs/guest_extraction_{timestamp}.log"
+    
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(message)s',
+        handlers=[
+            logging.FileHandler(log_filename, encoding='utf-8'),
+            logging.StreamHandler()  # This keeps console output
+        ]
+    )
+    
+    return log_filename
+
+def log_and_print(message):
+    """
+    Print to console and log to file
+    """
+    print(message)
+    logging.info(message)
 
 def is_valid_email(email):
     """
@@ -54,7 +87,7 @@ def parse_date(date_string):
         date_obj = datetime.strptime(date_string.strip(), "%d/%m/%Y")
         return date_obj.strftime("%Y-%m-%d")
     except ValueError:
-        print(f"⚠️  Invalid date format: {date_string}")
+        log_and_print(f"⚠️  Invalid date format: {date_string}")
         return None
 
 def calculate_checkin_date(checkout_date_str, nights):
@@ -72,7 +105,7 @@ def calculate_checkin_date(checkout_date_str, nights):
         checkin_date = checkout_date - timedelta(days=int(nights))
         return checkin_date.strftime("%Y-%m-%d")
     except (ValueError, TypeError):
-        print(f"⚠️  Could not calculate checkin date from {checkout_date_str} and {nights} nights")
+        log_and_print(f"⚠️  Could not calculate checkin date from {checkout_date_str} and {nights} nights")
         return None
 
 def connect_to_database():
@@ -89,10 +122,10 @@ def connect_to_database():
             charset='utf8mb4',
             collation='utf8mb4_unicode_ci'
         )
-        print("✅ Connected to MySQL database successfully!")
+        log_and_print("✅ Connected to MySQL database successfully!")
         return conn
     except mysql.connector.Error as e:
-        print(f"❌ Error connecting to MySQL database: {e}")
+        log_and_print(f"❌ Error connecting to MySQL database: {e}")
         return None
 
 def read_excel_file(filename):
@@ -130,8 +163,8 @@ def read_excel_file(filename):
             nights = row[11] if row[11] else None
             last_stay = str(row[13]).strip() if row[13] else ""
             
-            # Only add if we have at least a name and email
-            if first_name and email:
+            # Save ALL records (even without complete data)
+            if first_name or last_name or email:  # At least one identifier
                 guests_data.append({
                     'first_name': first_name,
                     'last_name': last_name,
@@ -145,19 +178,20 @@ def read_excel_file(filename):
                     'row_number': row_num
                 })
         
-        print(f"📖 Read {len(guests_data)} guest records from Excel file")
+        log_and_print(f"📖 Read {len(guests_data)} guest records from Excel file")
         return guests_data
         
     except FileNotFoundError:
-        print(f"❌ Error: File '{filename}' not found!")
+        log_and_print(f"❌ Error: File '{filename}' not found!")
         return []
     except Exception as e:
-        print(f"❌ Error reading Excel file: {e}")
+        log_and_print(f"❌ Error reading Excel file: {e}")
         return []
 
 def process_and_save_guests(conn, guests_data):
     """
     Process guest data and save ALL entries to database (no filtering)
+    Saves users even without dates or with incomplete data
     """
     cursor = conn.cursor()
     
@@ -166,11 +200,12 @@ def process_and_save_guests(conn, guests_data):
     booking_emails = 0
     invalid_emails = 0
     date_issues = 0
+    no_dates_saved = 0
     duplicates_skipped = 0
     other_errors = 0
     
-    print("\n🔄 Processing ALL guests (no filtering)...")
-    print("-" * 80)
+    log_and_print("\n🔄 Processing ALL guests (no filtering, saving even without dates)...")
+    log_and_print("-" * 80)
     
     for guest in guests_data:
         total_processed += 1
@@ -185,8 +220,8 @@ def process_and_save_guests(conn, guests_data):
         if is_booking_email:
             booking_emails += 1
         
-        # Process dates
-        checkout_date = parse_date(guest['last_stay'])
+        # Process dates (but save even if dates are missing)
+        checkout_date = parse_date(guest['last_stay']) if guest['last_stay'] else None
         checkin_date = None
         
         if checkout_date and guest['nights']:
@@ -194,8 +229,9 @@ def process_and_save_guests(conn, guests_data):
         
         if not checkout_date:
             date_issues += 1
+            no_dates_saved += 1
         
-        # Save ALL records to database (no filtering)
+        # Save ALL records to database (no filtering, even without dates)
         try:
             insert_query = """
                 INSERT INTO email_lists_2 
@@ -204,15 +240,15 @@ def process_and_save_guests(conn, guests_data):
             """
             
             values = (
-                guest['first_name'],
-                guest['last_name'], 
-                guest['email'],
-                guest['phone'],
-                checkin_date,
-                checkout_date,
-                guest['country'],
-                guest['city'],
-                guest['postal_code'] if guest['postal_code'] != 'None' else None,
+                guest['first_name'] if guest['first_name'] else None,
+                guest['last_name'] if guest['last_name'] else None,
+                guest['email'] if guest['email'] else None,
+                guest['phone'] if guest['phone'] else None,
+                checkin_date,  # Can be None
+                checkout_date,  # Can be None
+                guest['country'] if guest['country'] else None,
+                guest['city'] if guest['city'] else None,
+                guest['postal_code'] if guest['postal_code'] != 'None' and guest['postal_code'] else None,
                 '1',  # consent = 1 (true)
                 'Aguere'  # hostel name
             )
@@ -238,39 +274,40 @@ def process_and_save_guests(conn, guests_data):
             elif checkout_date:
                 date_info = f" | checkout: {checkout_date}"
             else:
-                date_info = " | no dates"
+                date_info = " | no dates (SAVED ANYWAY)"
             
-            print(f"{status_text} Row {guest['row_number']}: {guest['first_name']} {guest['last_name']} - {guest['email']}{date_info}")
+            log_and_print(f"{status_text} Row {guest['row_number']}: {guest['first_name']} {guest['last_name']} - {guest['email']}{date_info}")
             
         except mysql.connector.IntegrityError as e:
             if "Duplicate entry" in str(e):
                 duplicates_skipped += 1
-                print(f"⚠️  Row {guest['row_number']}: Duplicate email skipped: {guest['email']}")
+                log_and_print(f"⚠️  Row {guest['row_number']}: Duplicate email skipped: {guest['email']}")
             else:
                 other_errors += 1
-                print(f"❌ Row {guest['row_number']}: Database error: {e}")
+                log_and_print(f"❌ Row {guest['row_number']}: Database integrity error: {e}")
         except Exception as e:
             other_errors += 1
-            print(f"❌ Row {guest['row_number']}: Unexpected error: {e}")
+            log_and_print(f"❌ Row {guest['row_number']}: Unexpected error: {e}")
     
     # Save all changes to database
     conn.commit()
     
     # Print summary
-    print("\n" + "=" * 80)
-    print("📊 PROCESSING SUMMARY (ALL RECORDS SAVED):")
-    print("=" * 80)
-    print(f"Total records processed: {total_processed}")
-    print(f"✅ Records saved to database: {saved_count}")
-    print(f"⚠️  Duplicate emails skipped: {duplicates_skipped}")
-    print(f"❌ Other errors: {other_errors}")
-    print()
-    print("📊 DATA QUALITY REPORT:")
-    print(f"📧❌ Invalid email formats: {invalid_emails}")
-    print(f"🏨 Booking.com emails: {booking_emails}")
-    print(f"📅❌ Date parsing issues: {date_issues}")
-    print("=" * 80)
-    print("Legend: 📧❌=Invalid Email | 🏨=Booking.com | 📅❌=Date Issue | ✅=Clean Record")
+    log_and_print("\n" + "=" * 80)
+    log_and_print("📊 PROCESSING SUMMARY (ALL RECORDS SAVED):")
+    log_and_print("=" * 80)
+    log_and_print(f"Total records processed: {total_processed}")
+    log_and_print(f"✅ Records saved to database: {saved_count}")
+    log_and_print(f"📅❌ Records saved WITHOUT dates: {no_dates_saved}")
+    log_and_print(f"⚠️  Duplicate emails skipped: {duplicates_skipped}")
+    log_and_print(f"❌ Other errors: {other_errors}")
+    log_and_print("")
+    log_and_print("📊 DATA QUALITY REPORT:")
+    log_and_print(f"📧❌ Invalid email formats: {invalid_emails}")
+    log_and_print(f"🏨 Booking/Platform emails: {booking_emails}")
+    log_and_print(f"📅❌ Date parsing issues: {date_issues}")
+    log_and_print("=" * 80)
+    log_and_print("Legend: 📧❌=Invalid Email | 🏨=Booking/Platform | 📅❌=Date Issue | ✅=Clean Record")
 
 def show_database_contents(conn, limit=10):
     """
@@ -280,11 +317,11 @@ def show_database_contents(conn, limit=10):
     cursor.execute("SELECT COUNT(*) FROM email_lists_2")
     total = cursor.fetchone()[0]
     
-    print(f"\n📊 Database now contains {total} guest records in email_lists_2 table")
+    log_and_print(f"\n📊 Database now contains {total} guest records in email_lists_2 table")
     
     if total > 0:
-        print(f"\nFirst {min(limit, total)} records:")
-        print("-" * 100)
+        log_and_print(f"\nFirst {min(limit, total)} records:")
+        log_and_print("-" * 100)
         cursor.execute("""
             SELECT first_name, last_name, email, city, country, checkin, checkout 
             FROM email_lists_2 
@@ -295,47 +332,54 @@ def show_database_contents(conn, limit=10):
         for row in cursor.fetchall():
             dates = f"{row[5]} to {row[6]}" if row[5] and row[6] else "No dates"
             location = f"{row[3]}, {row[4]}" if row[3] and row[4] else "No location"
-            print(f"{row[0]} {row[1]} - {row[2]} | {location} | {dates}")
+            log_and_print(f"{row[0]} {row[1]} - {row[2]} | {location} | {dates}")
 
 def main():
     """
     Main function to run the entire extraction process
     """
-    print("🏨 GUEST EMAIL EXTRACTOR FOR AGUERE HOSTEL")
-    print("=" * 60)
+    # Setup logging first
+    log_filename = setup_logging()
+    
+    log_and_print("🏨 GUEST EMAIL EXTRACTOR FOR AGUERE HOSTEL")
+    log_and_print("=" * 60)
+    log_and_print(f"📄 Log file: {log_filename}")
+    log_and_print("=" * 60)
     
     # Configuration
     excel_filename = "guests.xlsx"  # Your Excel file name
     
     # Step 1: Connect to database
-    print("1. Connecting to MySQL database...")
+    log_and_print("1. Connecting to MySQL database...")
     conn = connect_to_database()
     if not conn:
-        print("❌ Could not connect to database. Exiting.")
+        log_and_print("❌ Could not connect to database. Exiting.")
         return
     
     # Step 2: Read Excel file
-    print("\n2. Reading Excel file...")
+    log_and_print("\n2. Reading Excel file...")
     guests_data = read_excel_file(excel_filename)
     
     if not guests_data:
-        print("❌ No data found. Exiting.")
+        log_and_print("❌ No data found. Exiting.")
         conn.close()
         return
     
     # Step 3: Process and save data
-    print("\n3. Processing and filtering data...")
+    log_and_print("\n3. Processing and saving ALL data (including records without dates)...")
     process_and_save_guests(conn, guests_data)
     
     # Step 4: Show results
-    print("\n4. Showing latest results...")
+    log_and_print("\n4. Showing latest results...")
     show_database_contents(conn, limit=10)
     
     # Close database connection
     conn.close()
     
-    print(f"\n🎉 Process completed! Check your 'email_lists_2' table in 'nests_emails' database.")
-    print("Note: All records have hostel='Aguere' and consent='1'")
+    log_and_print(f"\n🎉 Process completed! ALL records saved to 'email_lists_2' table in 'nests_emails' database.")
+    log_and_print("Note: All records have hostel='Aguere' and consent='1'")
+    log_and_print("📊 Check the summary above for data quality insights!")
+    log_and_print(f"📄 Complete log saved to: {log_filename}")
 
 # Run the script
 if __name__ == "__main__":
