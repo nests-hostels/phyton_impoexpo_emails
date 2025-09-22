@@ -1,0 +1,71 @@
+import pandas as pd
+
+# Define the task data
+tasks = [
+    # HOME
+    ("Reubicar logo arriba del todo", "Página de Inicio", "Asegurar que el logo esté en el encabezado superior", "Alta"),
+    ("Quitar botón duplicado 'Book Now'", "Página de Inicio", "Evitar duplicación innecesaria que puede confundir al usuario", "Alta"),
+    ("Añadir resumen visual y claro del Nest Pass", "Página de Inicio", "Breve explicación visible directamente en la Home", "Alta"),
+    ("Mover barra de reserva horizontal al encabezado", "Página de Inicio", "Mejora del espacio y accesibilidad", "Media"),
+    ("Eliminar modales innecesarios (ej. Nest Pass)", "Página de Inicio", "Porque no se indexan, no aportan a Google", "Alta"),
+    ("Revisar idioma: evitar palabras en inglés", "Página de Inicio", "Garantizar consistencia del idioma seleccionado", "Alta"),
+    ("Mejorar explicación del Nest Pass (no usar preguntas)", "Página de Inicio", "Redactar en formato descriptivo con imágenes para indexación", "Alta"),
+    ("Aumentar tamaño de fotos en la Home", "Página de Inicio", "Hacerlas más visuales y atractivas", "Media"),
+    ("Añadir una frase inspiradora en sección de fotos", "Página de Inicio", "Ej. 'Vive la experiencia Nest con nosotros'", "Media"),
+    ("Añadir sección de contacto visible en la Home", "Página de Inicio", "Mejorar accesibilidad al contacto", "Alta"),
+    
+    # HOSTALES Y FICHAS INDIVIDUALES
+    ("Añadir sello 'Nest Pass disponible' a cada hostel", "Hostales", "Refuerza info clara para el viajero", "Alta"),
+    ("Añadir localidad exacta a cada hostel (no solo la isla)", "Hostales", "Mejora búsqueda y especificidad", "Alta"),
+    ("Traducir 'Book Now' al español", "Hostales", "Claridad para usuarios hispanohablantes", "Alta"),
+    ("Revisar contenido de Las Eras (buffet incluido)", "Hostales", "Verificar si está actualizado", "Alta"),
+    ("Resaltar valor diferencial e inspiración de cada hostel", "Hostales", "Enfatizar experiencia, no repetir estructura", "Alta"),
+    ("Agrupar hostels por isla (Tenerife, Gran Canaria, Ibiza)", "Hostales", "Orden más lógico para el usuario", "Media"),
+    ("Testimonios específicos en cada ficha de hostel", "Hostales", "No usar testimonios genéricos", "Alta"),
+    ("Añadir sección 'Visita la isla' en cada página de hostel", "Hostales", "Enlazar a artículos de playas, senderos, etc.", "Alta"),
+
+    # CONTENIDO, BLOG Y SEO
+    ("Añadir enlaces reales en 'más sobre nuestros destinos'", "Contenido / SEO", "Llevar a artículos reales por isla", "Alta"),
+    ("Hacer que el blog sea transversal en la web", "Contenido / SEO", "Incluirlo también en Home y páginas de hostales", "Alta"),
+    ("Categorizar blog por temas/islas", "Contenido / SEO", "Para que cada artículo aparezca en su sección correspondiente", "Media"),
+    ("Incluir fechas en artículos con eventos o contenido temporal", "Contenido / SEO", "Mejora la relevancia temporal", "Media"),
+    ("Añadir botón de reserva debajo de cada artículo", "Contenido / SEO", "Facilita acciones desde el contenido", "Alta"),
+
+    # SURF CAMP & ACTIVIDADES
+    ("Cambiar título de 'Surf Camp' por una frase inspiracional", "Surf Camp", "Más emocional, más atractivo", "Alta"),
+    ("Mostrar precios y condiciones directamente, no solo 'solicitar presupuesto'", "Surf Camp", "Reduce fricción para la venta", "Alta"),
+    ("Reorganizar beneficios: directos + adicionales", "Surf Camp", "Claridad en propuesta de valor", "Media"),
+    ("Unificar diseño y menú con el resto de páginas", "Surf Camp", "Consistencia visual", "Alta"),
+    ("Usar fotos principales de hostels también en esta sección", "Surf Camp", "Unificar branding", "Media"),
+    ("Mostrar estrellas reales en reviews", "Surf Camp", "Evitar confusión con puntuaciones", "Media"),
+    ("Eliminar referencias a Ibiza/Gran Canaria si no aplican", "Surf Camp", "No confundir al usuario", "Media"),
+    ("Incluir más fotos de clases (surf, buceo, parapente)", "Surf Camp", "Refuerza la confianza del usuario", "Alta"),
+
+    # CONTENIDO MULTIMEDIA Y REDES SOCIALES
+    ("Integrar feed dinámico de Instagram y TikTok", "Redes Sociales", "Mostrar contenido actualizado y real", "Alta"),
+    ("Incluir vídeos o reels dentro de blogposts", "Redes Sociales", "Enriquecer artículos", "Media"),
+    ("Añadir Web Stories con AMP", "Multimedia / SEO", "Mejora en Google Discover y tráfico móvil", "Alta"),
+
+    # FUNCIONALIDADES AVANZADAS
+    ("Integrar chatbot AI en cabecera o como widget", "Funcionalidad", "Interacción 24/7 y ayuda contextual", "Alta"),
+    ("Personalizar mensajes tipo 'Soy Nesty, ¿te ayudo?'", "Funcionalidad", "Humanizar experiencia digital", "Media"),
+
+    # CONTACTO & FOOTER
+    ("Mostrar solo email y WhatsApp en contacto", "Contacto", "Eliminar elementos innecesarios", "Alta"),
+    ("Añadir horario de atención", "Contacto", "Más transparencia", "Alta"),
+    ("Usar frases amigables en contacto", "Contacto", "Mejora tono de marca", "Media"),
+    ("En footer, convertir Locations en enlaces reales", "Footer", "Evitar repetición de contacto", "Alta"),
+
+    # RESERVAS Y MODALES
+    ("Hacer que el modal de reserva sea fullscreen (100%)", "UX / Reservas", "Mejor experiencia en escritorio", "Media"),
+    ("Evitar modales sobre modales (stacking)", "UX / Reservas", "Especial atención en móviles", "Alta")
+]
+
+# Create DataFrame
+df = pd.DataFrame(tasks, columns=["Tarea", "Categoría", "Descripción", "Prioridad"])
+
+# Save to CSV
+csv_path = "./Mejoras_NestHostels_Notion.csv"
+df.to_csv(csv_path, index=False)
+
+csv_path
