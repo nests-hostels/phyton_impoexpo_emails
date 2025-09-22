@@ -6,21 +6,81 @@ from datetime import datetime, timedelta
 import logging
 import os
 
+# ======================================================================
+# 🔧 CONFIGURATION SECTION - EDIT THESE VALUES AS NEEDED
+# ======================================================================
+
+CONFIG = {
+    # Database Connection Settings
+    'DATABASE': {
+        'host': '127.0.0.1',
+        'database': 'nests_emails',
+        'table': 'email_lists_2',
+        'user': 'root',
+        'password': '',
+        'charset': 'utf8mb4',
+        'collation': 'utf8mb4_unicode_ci'
+    },
+    
+    # Application Settings
+    'APPLICATION': {
+        'hostel_name': 'Aguere',
+        'consent_default': '1',  # Default consent value (1=true, 0=false)
+        'excel_filename': 'guests.xlsx',
+        'date_format': '%d/%m/%Y'  # Input date format from Excel
+    },
+    
+    # Email Filtering Settings
+    'EMAIL_FILTERING': {
+        'fake_domains': [
+            '@guest.booking.com',
+            '@expediapartnercentral.com', 
+            '@noemail.com',
+            '@airbnb.com'
+        ]
+    },
+    
+    # Logging Settings
+    'LOGGING': {
+        'log_directory': 'logs',
+        'log_level': logging.INFO,
+        'show_results_limit': 10  # Number of records to show in final summary
+    },
+    
+    # Excel Column Mapping (0-based index)
+    'EXCEL_COLUMNS': {
+        'first_name': 0,      # Nombre
+        'last_name': 1,       # Apellido
+        'email': 2,           # Correo electrónico
+        'phone': 3,           # Teléfono
+        'city': 6,            # Ciudad
+        'country': 7,         # País
+        'postal_code': 9,     # Código postal
+        'nights': 11,         # Noches de estadía
+        'last_stay': 13       # Última estadía
+    }
+}
+
+# ======================================================================
+# 📋 END OF CONFIGURATION SECTION
+# ======================================================================
+
 def setup_logging():
     """
     Setup logging to both console and file with timestamp
     """
     # Create logs directory if it doesn't exist
-    if not os.path.exists('logs'):
-        os.makedirs('logs')
+    log_dir = CONFIG['LOGGING']['log_directory']
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
     
     # Create log filename with timestamp
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_filename = f"logs/guest_extraction_{timestamp}.log"
+    log_filename = f"{log_dir}/guest_extraction_{timestamp}.log"
     
     # Configure logging
     logging.basicConfig(
-        level=logging.INFO,
+        level=CONFIG['LOGGING']['log_level'],
         format='%(asctime)s - %(message)s',
         handlers=[
             logging.FileHandler(log_filename, encoding='utf-8'),
@@ -59,13 +119,8 @@ def is_not_booking_email(email):
     
     email_lower = email.lower().strip()
     
-    # List of fake/booking email domains to exclude
-    fake_domains = [
-        '@guest.booking.com',
-        '@expediapartnercentral.com', 
-        '@noemail.com',
-        '@airbnb.com'
-    ]
+    # Get fake domains from configuration
+    fake_domains = CONFIG['EMAIL_FILTERING']['fake_domains']
     
     # Check if email ends with any of the fake domains
     for domain in fake_domains:
@@ -76,18 +131,19 @@ def is_not_booking_email(email):
 
 def parse_date(date_string):
     """
-    Parse date from DD/MM/YYYY format to YYYY-MM-DD
+    Parse date from configured format to YYYY-MM-DD
     Returns formatted date string or None if invalid
     """
     if not date_string or not isinstance(date_string, str):
         return None
     
     try:
-        # Parse DD/MM/YYYY format
-        date_obj = datetime.strptime(date_string.strip(), "%d/%m/%Y")
+        # Parse date using configured format
+        date_format = CONFIG['APPLICATION']['date_format']
+        date_obj = datetime.strptime(date_string.strip(), date_format)
         return date_obj.strftime("%Y-%m-%d")
     except ValueError:
-        log_and_print(f"⚠️  Invalid date format: {date_string}")
+        log_and_print(f"⚠️  Invalid date format: {date_string} (expected format: {CONFIG['APPLICATION']['date_format']})")
         return None
 
 def calculate_checkin_date(checkout_date_str, nights):
@@ -110,19 +166,20 @@ def calculate_checkin_date(checkout_date_str, nights):
 
 def connect_to_database():
     """
-    Connect to MySQL database
+    Connect to MySQL database using configuration settings
     Returns database connection
     """
     try:
+        db_config = CONFIG['DATABASE']
         conn = mysql.connector.connect(
-            host='127.0.0.1',
-            database='nests_emails',
-            user='root',
-            password='',
-            charset='utf8mb4',
-            collation='utf8mb4_unicode_ci'
+            host=db_config['host'],
+            database=db_config['database'],
+            user=db_config['user'],
+            password=db_config['password'],
+            charset=db_config['charset'],
+            collation=db_config['collation']
         )
-        log_and_print("✅ Connected to MySQL database successfully!")
+        log_and_print(f"✅ Connected to MySQL database '{db_config['database']}' successfully!")
         return conn
     except mysql.connector.Error as e:
         log_and_print(f"❌ Error connecting to MySQL database: {e}")
@@ -130,7 +187,7 @@ def connect_to_database():
 
 def read_excel_file(filename):
     """
-    Read the Excel file and extract guest data
+    Read the Excel file and extract guest data using configured column mappings
     Returns list of tuples with all guest information
     """
     try:
@@ -139,29 +196,20 @@ def read_excel_file(filename):
         sheet = workbook.active
         
         guests_data = []
+        col_map = CONFIG['EXCEL_COLUMNS']
         
         # Skip header row (row 1), start from row 2
         for row_num, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
-            # Excel columns mapping:
-            # 0: Nombre (first_name)
-            # 1: Apellido (last_name) 
-            # 2: Correo electrónico (email)
-            # 3: Teléfono (phone)
-            # 6: Ciudad (city)
-            # 7: País (country)
-            # 9: Código postal (postal_code)
-            # 11: Noches de estadía (nights for calculation)
-            # 13: Última estadía (checkout date)
-            
-            first_name = str(row[0]).strip() if row[0] else ""
-            last_name = str(row[1]).strip() if row[1] else ""
-            email = str(row[2]).strip() if row[2] else ""
-            phone = str(row[3]).strip() if row[3] else ""
-            city = str(row[6]).strip() if row[6] else ""
-            country = str(row[7]).strip() if row[7] else ""
-            postal_code = str(row[9]).strip() if row[9] else ""
-            nights = row[11] if row[11] else None
-            last_stay = str(row[13]).strip() if row[13] else ""
+            # Extract data using configured column mappings
+            first_name = str(row[col_map['first_name']]).strip() if row[col_map['first_name']] else ""
+            last_name = str(row[col_map['last_name']]).strip() if row[col_map['last_name']] else ""
+            email = str(row[col_map['email']]).strip() if row[col_map['email']] else ""
+            phone = str(row[col_map['phone']]).strip() if row[col_map['phone']] else ""
+            city = str(row[col_map['city']]).strip() if row[col_map['city']] else ""
+            country = str(row[col_map['country']]).strip() if row[col_map['country']] else ""
+            postal_code = str(row[col_map['postal_code']]).strip() if row[col_map['postal_code']] else ""
+            nights = row[col_map['nights']] if row[col_map['nights']] else None
+            last_stay = str(row[col_map['last_stay']]).strip() if row[col_map['last_stay']] else ""
             
             # Save ALL records (even without complete data)
             if first_name or last_name or email:  # At least one identifier
@@ -178,7 +226,7 @@ def read_excel_file(filename):
                     'row_number': row_num
                 })
         
-        log_and_print(f"📖 Read {len(guests_data)} guest records from Excel file")
+        log_and_print(f"📖 Read {len(guests_data)} guest records from Excel file '{filename}'")
         return guests_data
         
     except FileNotFoundError:
@@ -233,8 +281,9 @@ def process_and_save_guests(conn, guests_data):
         
         # Save ALL records to database (no filtering, even without dates)
         try:
-            insert_query = """
-                INSERT INTO email_lists_2 
+            table_name = CONFIG['DATABASE']['table']
+            insert_query = f"""
+                INSERT INTO {table_name} 
                 (first_name, last_name, email, phone, checkin, checkout, country, city, postal_code, consent, hostel, created_at, updated_at) 
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
             """
@@ -249,8 +298,8 @@ def process_and_save_guests(conn, guests_data):
                 guest['country'] if guest['country'] else None,
                 guest['city'] if guest['city'] else None,
                 guest['postal_code'] if guest['postal_code'] != 'None' and guest['postal_code'] else None,
-                '1',  # consent = 1 (true)
-                'Aguere'  # hostel name
+                CONFIG['APPLICATION']['consent_default'],  # consent from config
+                CONFIG['APPLICATION']['hostel_name']  # hostel name from config
             )
             
             cursor.execute(insert_query, values)
@@ -309,22 +358,26 @@ def process_and_save_guests(conn, guests_data):
     log_and_print("=" * 80)
     log_and_print("Legend: 📧❌=Invalid Email | 🏨=Booking/Platform | 📅❌=Date Issue | ✅=Clean Record")
 
-def show_database_contents(conn, limit=10):
+def show_database_contents(conn, limit=None):
     """
     Display some saved records from the database
     """
+    if limit is None:
+        limit = CONFIG['LOGGING']['show_results_limit']
+    
     cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM email_lists_2")
+    table_name = CONFIG['DATABASE']['table']
+    cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
     total = cursor.fetchone()[0]
     
-    log_and_print(f"\n📊 Database now contains {total} guest records in email_lists_2 table")
+    log_and_print(f"\n📊 Database now contains {total} guest records in '{table_name}' table")
     
     if total > 0:
         log_and_print(f"\nFirst {min(limit, total)} records:")
         log_and_print("-" * 100)
-        cursor.execute("""
+        cursor.execute(f"""
             SELECT first_name, last_name, email, city, country, checkin, checkout 
-            FROM email_lists_2 
+            FROM {table_name} 
             ORDER BY id DESC 
             LIMIT %s
         """, (limit,))
@@ -341,13 +394,16 @@ def main():
     # Setup logging first
     log_filename = setup_logging()
     
-    log_and_print("🏨 GUEST EMAIL EXTRACTOR FOR AGUERE HOSTEL")
+    log_and_print(f"🏨 GUEST EMAIL EXTRACTOR FOR {CONFIG['APPLICATION']['hostel_name'].upper()} HOSTEL")
     log_and_print("=" * 60)
     log_and_print(f"📄 Log file: {log_filename}")
+    log_and_print(f"🏨 Hostel: {CONFIG['APPLICATION']['hostel_name']}")
+    log_and_print(f"📊 Database: {CONFIG['DATABASE']['database']}.{CONFIG['DATABASE']['table']}")
+    log_and_print(f"📧 Filtering {len(CONFIG['EMAIL_FILTERING']['fake_domains'])} fake domain types")
     log_and_print("=" * 60)
     
     # Configuration
-    excel_filename = "guests.xlsx"  # Your Excel file name
+    excel_filename = CONFIG['APPLICATION']['excel_filename']
     
     # Step 1: Connect to database
     log_and_print("1. Connecting to MySQL database...")
@@ -371,13 +427,17 @@ def main():
     
     # Step 4: Show results
     log_and_print("\n4. Showing latest results...")
-    show_database_contents(conn, limit=10)
+    show_database_contents(conn)
     
     # Close database connection
     conn.close()
     
-    log_and_print(f"\n🎉 Process completed! ALL records saved to 'email_lists_2' table in 'nests_emails' database.")
-    log_and_print("Note: All records have hostel='Aguere' and consent='1'")
+    table_name = CONFIG['DATABASE']['table']
+    database_name = CONFIG['DATABASE']['database']
+    hostel_name = CONFIG['APPLICATION']['hostel_name']
+    
+    log_and_print(f"\n🎉 Process completed! ALL records saved to '{table_name}' table in '{database_name}' database.")
+    log_and_print(f"Note: All records have hostel='{hostel_name}' and consent='{CONFIG['APPLICATION']['consent_default']}'")
     log_and_print("📊 Check the summary above for data quality insights!")
     log_and_print(f"📄 Complete log saved to: {log_filename}")
 
