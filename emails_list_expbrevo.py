@@ -352,7 +352,7 @@ def show_export_summary(stats):
     log_and_print(f"🔄 Duplicate emails skipped: {stats['duplicate_email_count']}")
     log_and_print("")
     log_and_print(f"📁 CSV file created: {stats['csv_filename']}")
-    log_and_print(f"🔧 Filtered domains: {', '.join(CONFIG['EMAIL_FILTERING']['fake_domains'])}")
+    log_and_print(f"🔧 Filtered domains: {', '.join(CONFIG['EMAIL_FILTERING']['fake_keywords'])}")
     log_and_print(f"🔄 Duplicate check: email_lists table cross-reference enabled")
     log_and_print("=" * 80)
     
@@ -375,7 +375,7 @@ def main():
     log_and_print(f"📄 Log file: {log_filename}")
     log_and_print(f"📊 Source: {CONFIG['DATABASE']['database']}.{CONFIG['DATABASE']['table']}")
     log_and_print(f"📧 Zero tolerance for invalid emails")
-    log_and_print(f"🔧 Filtering {len(CONFIG['EMAIL_FILTERING']['fake_domains'])} fake domain types")
+    log_and_print(f"🔧 Filtering {len(CONFIG['EMAIL_FILTERING']['fake_keywords'])} fake domain types")
     log_and_print("=" * 60)
     
     # Step 1: Connect to database
