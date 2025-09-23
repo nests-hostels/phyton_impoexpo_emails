@@ -136,6 +136,24 @@ def is_not_booking_email(email):
     
     return True
 
+def check_email_exists_in_original_table(conn, email):
+    """
+    Check if email already exists in the original email_lists table
+    Returns True if email exists (is duplicate), False if not
+    """
+    cursor = conn.cursor()
+    
+    try:
+        query = "SELECT COUNT(*) FROM email_lists WHERE email = %s"
+        cursor.execute(query, (email,))
+        count = cursor.fetchone()[0]
+        return count > 0
+    except mysql.connector.Error as e:
+        log_and_print(f"⚠️  Error checking duplicate email {email}: {e}")
+        return False
+    finally:
+        cursor.close()
+
 def connect_to_database():
     """
     Connect to MySQL database using configuration settings
@@ -211,7 +229,7 @@ def create_csv_filename():
     
     return f"{export_dir}/{prefix}_{timestamp}.csv"
 
-def export_to_brevo_csv(records):
+def export_to_brevo_csv(conn, records):
     """
     Export records to Brevo-compatible CSV file
     Returns (csv_filename, stats)
@@ -251,6 +269,12 @@ def export_to_brevo_csv(records):
             if not is_not_booking_email(email):
                 booking_email_count += 1
                 log_and_print(f"❌ Row {contact_id}: Booking/fake email skipped: {email}")
+                continue
+            
+            # Check for duplicates in original email_lists table (COMMENT THIS BLOCK TO DISABLE)
+            if check_email_exists_in_original_table(conn, email):
+                booking_email_count += 1  # Add to existing counter
+                log_and_print(f"❌ Row {contact_id}: Duplicate email skipped (exists in email_lists): {email}")
                 continue
             
             # Create CSV row
@@ -307,10 +331,11 @@ def show_export_summary(stats):
     log_and_print(f"Total records from database: {stats['total_records']}")
     log_and_print(f"✅ Valid emails exported: {stats['exported_count']}")
     log_and_print(f"❌ Invalid email formats skipped: {stats['invalid_email_count']}")
-    log_and_print(f"❌ Booking/fake emails skipped: {stats['booking_email_count']}")
+    log_and_print(f"❌ Booking/fake/duplicate emails skipped: {stats['booking_email_count']}")
     log_and_print("")
     log_and_print(f"📁 CSV file created: {stats['csv_filename']}")
     log_and_print(f"🔧 Filtered domains: {', '.join(CONFIG['EMAIL_FILTERING']['fake_domains'])}")
+    log_and_print(f"🔄 Duplicate check: email_lists table cross-reference enabled")
     log_and_print("=" * 80)
     
     # Calculate success rate
@@ -351,7 +376,7 @@ def main():
     
     # Step 3: Export to CSV
     log_and_print("\n3. Exporting valid emails to Brevo CSV...")
-    csv_filename, stats = export_to_brevo_csv(records)
+    csv_filename, stats = export_to_brevo_csv(conn, records)
     
     # Step 4: Show results
     log_and_print("\n4. Export completed!")
