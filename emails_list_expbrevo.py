@@ -25,17 +25,22 @@ CONFIG = {
     'EXPORT': {
         'output_directory': 'exports',
         'filename_prefix': 'brevo_export',
-        'csv_encoding': 'utf-8'
+        'csv_encoding': 'utf-8',
+        'check_duplicates': False
     },
     
     # Email Filtering Settings (ZERO TOLERANCE)
     'EMAIL_FILTERING': {
-        'fake_domains': [
-            '@guest.booking.com',
-            '@expediapartnercentral.com', 
-            '@noemail.com',
-            '@airbnb.com'
-        ]
+        'fake_keywords': [
+            'booking',
+            'airbnb', 
+            'expedia',
+            'noemail',
+            'temp',
+            'guest',
+            'ctrip',
+            'trip.com',
+            'test' ]
     },
     
     # Logging Settings
@@ -119,6 +124,7 @@ def is_valid_email(email):
 def is_not_booking_email(email):
     """
     Check if email is NOT from booking platforms or fake email services
+    Now checks for keywords in domain instead of exact matches
     Returns True if email is real, False if it's from booking/fake services
     """
     if not email or not isinstance(email, str):
@@ -126,12 +132,21 @@ def is_not_booking_email(email):
     
     email_lower = email.lower().strip()
     
-    # Get fake domains from configuration
-    fake_domains = CONFIG['EMAIL_FILTERING']['fake_domains']
+    # Extract domain part (after @)
+    if '@' not in email_lower:
+        return False
     
-    # Check if email ends with any of the fake domains
-    for domain in fake_domains:
-        if email_lower.endswith(domain):
+    try:
+        domain = email_lower.split('@')[1]
+    except IndexError:
+        return False
+    
+    # Get fake keywords from configuration
+    fake_keywords = CONFIG['EMAIL_FILTERING']['fake_keywords']
+    
+    # Check if domain contains any of the fake keywords
+    for keyword in fake_keywords:
+        if keyword in domain:
             return False
     
     return True
