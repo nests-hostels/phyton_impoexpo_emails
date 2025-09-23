@@ -240,6 +240,7 @@ def export_to_brevo_csv(conn, records):
     exported_count = 0
     invalid_email_count = 0
     booking_email_count = 0
+    duplicate_email_count = 0
     
     log_and_print(f"\n🔄 Exporting to Brevo CSV: {csv_filename}")
     log_and_print("-" * 80)
@@ -273,7 +274,7 @@ def export_to_brevo_csv(conn, records):
             
             # Check for duplicates in original email_lists table (COMMENT THIS BLOCK TO DISABLE)
             if check_email_exists_in_original_table(conn, email):
-                booking_email_count += 1  # Add to existing counter
+                duplicate_email_count += 1  # Separate counter for duplicates
                 log_and_print(f"❌ Row {contact_id}: Duplicate email skipped (exists in email_lists): {email}")
                 continue
             
@@ -316,6 +317,7 @@ def export_to_brevo_csv(conn, records):
         'exported_count': exported_count,
         'invalid_email_count': invalid_email_count,
         'booking_email_count': booking_email_count,
+        'duplicate_email_count': duplicate_email_count,
         'csv_filename': csv_filename
     }
     
@@ -331,7 +333,8 @@ def show_export_summary(stats):
     log_and_print(f"Total records from database: {stats['total_records']}")
     log_and_print(f"✅ Valid emails exported: {stats['exported_count']}")
     log_and_print(f"❌ Invalid email formats skipped: {stats['invalid_email_count']}")
-    log_and_print(f"❌ Booking/fake/duplicate emails skipped: {stats['booking_email_count']}")
+    log_and_print(f"❌ Booking/fake emails skipped: {stats['booking_email_count']}")
+    log_and_print(f"🔄 Duplicate emails skipped: {stats['duplicate_email_count']}")
     log_and_print("")
     log_and_print(f"📁 CSV file created: {stats['csv_filename']}")
     log_and_print(f"🔧 Filtered domains: {', '.join(CONFIG['EMAIL_FILTERING']['fake_domains'])}")
@@ -341,7 +344,9 @@ def show_export_summary(stats):
     # Calculate success rate
     if stats['total_records'] > 0:
         success_rate = (stats['exported_count'] / stats['total_records']) * 100
+        skipped_total = stats['invalid_email_count'] + stats['booking_email_count'] + stats['duplicate_email_count']
         log_and_print(f"✅ Export success rate: {success_rate:.1f}%")
+        log_and_print(f"📊 Total skipped: {skipped_total} emails")
 
 def main():
     """
