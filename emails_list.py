@@ -283,28 +283,28 @@ def process_and_save_guests(conn, guests_data):
         
         # Save ALL records to database (no filtering, even without dates)
         try:
-            table_name = CONFIG['DATABASE']['table']
-            insert_query = f"""
-                INSERT INTO {table_name} 
-                (first_name, last_name, email, phone, checkin, checkout, country, city, postal_code, consent, hostel, created_at, updated_at) 
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
-            """
+            # table_name = CONFIG['DATABASE']['table']
+            # insert_query = f"""
+            #     INSERT INTO {table_name} 
+            #     (first_name, last_name, email, phone, checkin, checkout, country, city, postal_code, consent, hostel, created_at, updated_at) 
+            #     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+            # """
             
-            values = (
-                guest['first_name'] if guest['first_name'] else None,
-                guest['last_name'] if guest['last_name'] else None,
-                guest['email'] if guest['email'] else None,
-                guest['phone'] if guest['phone'] else None,
-                checkin_date,  # Can be None
-                checkout_date,  # Can be None
-                guest['country'] if guest['country'] else None,
-                guest['city'] if guest['city'] else None,
-                guest['postal_code'] if guest['postal_code'] != 'None' and guest['postal_code'] else None,
-                CONFIG['APPLICATION']['consent_default'],  # consent from config
-                CONFIG['APPLICATION']['hostel_name']  # hostel name from config
-            )
+            # values = (
+            #     guest['first_name'] if guest['first_name'] else None,
+            #     guest['last_name'] if guest['last_name'] else None,
+            #     guest['email'] if guest['email'] else None,
+            #     guest['phone'] if guest['phone'] else None,
+            #     checkin_date,  # Can be None
+            #     checkout_date,  # Can be None
+            #     guest['country'] if guest['country'] else None,
+            #     guest['city'] if guest['city'] else None,
+            #     guest['postal_code'] if guest['postal_code'] != 'None' and guest['postal_code'] else None,
+            #     CONFIG['APPLICATION']['consent_default'],  # consent from config
+            #     CONFIG['APPLICATION']['hostel_name']  # hostel name from config
+            # )
             
-            cursor.execute(insert_query, values)
+            # cursor.execute(insert_query, values)
             saved_count += 1
             
             # Create status indicators for reporting
